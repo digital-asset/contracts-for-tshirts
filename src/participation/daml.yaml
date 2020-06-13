@@ -12,7 +12,6 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
-  - daml-trigger
   - ../freeshirts/freeshirts.dar
 sandbox-options:
   - --wall-clock-time

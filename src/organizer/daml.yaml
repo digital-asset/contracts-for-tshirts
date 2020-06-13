@@ -3,6 +3,7 @@ name: organizer
 source: daml
 exposed-modules:
 - Automation
+- Queries
 init-script: Setup:initialize
 parties:
   - Alice

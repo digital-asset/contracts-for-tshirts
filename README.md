@@ -52,15 +52,15 @@ Next you'll want to make sure your participant node is connected to the Global C
 From the Canton CLI run:
 ```
 # ping the zurihac participant node
-val shop = ParticipantId(UniqueIdentifier.tryFromString("freeshirts::01416588161bd9e1ecec1295a6358576b109f6e3cd985e22e92014d02e5757d48c"))
-participant1.health.ping(shop)
+val organizer = ParticipantId(UniqueIdentifier.tryFromString("freeshirts::01416588161bd9e1ecec1295a6358576b109f6e3cd985e22e92014d02e5757d48c"))
+participant1.health.ping(organizer)
 ```
 Now, from the Canton CLI again, upload the DAR and provision your parties to your local participant so it knows how to talk to the Global Canton.
 
 ```
 participants.local.dars.upload("/path/to/contracts-for-tshirts/src/freeshirts/freeshirts.dar")
 val submitter = participant1.parties.enable("ChooseYourPartyName")
-println((shop.toLf, submitter.toLf))
+println((organizer.toLf, submitter.toLf))
 ```
 
 ## To setup a Local Domain (Testing) to test your Code
@@ -74,42 +74,54 @@ cd contracts-for-tshirts
   --bootstrap=connect-global.canton
 ```
 
-Now for locally testing (without talking to the global domain) you need to define your own `shop` on `participant1` and have your `submitter` on `participant2`. And just like with the remote connection we need to upload the DAR to our local node first.
+For locally testing (without talking to the actual organizer) you need to define your own `organizer` on `participant2` and have your `submitter` on `participant1`. And just like with the remote connection we need to upload the DAR to our local node first.
 
 From the Canton CLI run:
 ```
 participants.local.dars.upload("/path/to/contracts-for-tshirts/src/freeshirts/freeshirts.dar")
 val submitter = participant1.parties.enable("ChooseYourPartyName")
-val shop = participant2.parties.enable("shop")
-println((shop.toLf, submitter.toLf))
+val organizer = participant2.parties.enable("organizer")
+println((organizer.toLf, submitter.toLf))
 ```
 
-# Configuring submit.json and query.json
+# Simple interaction with DAML Script
 
-Regardless of how you setup your nodes (Global Canton or Local) you'll now interact with them in the same way using daml script. To do this you need to copy/paste the `shop` and `submitter` UID strings into `shirts/submit.json` and `shirts/query.json`. Make sure to also modify `submit.json` for your order info.
+Regardless of how you setup your nodes (the real or local organizer) you'll now interact with them in the same way using DAML Script. To do this you need to copy/paste the `organizer` and `submitter` UID strings into `participation/submit.json` and `organizer/query.json`. Make sure to also modify `submit.json` for your order info.
 
 
-If using the global domain you will send all submissions and queries to it through your local Participant 1 node (this connection happens with the `connect-global.canton` file).
+If interacting with the actual organizer you will send all submissions and queries to it through your local Participant 1 node (this connection happens with the `connect-global.canton` file).
 
-If doing local testing you'll use Participant 1 for doing submissions and Participant 2 for querying the shop.
+If doing local testing you'll use Participant 1 for doing submissions and Participant 2 for querying the organizer.
 
-Your nodes will be running on the following PORTs:
+The config specifies the following ports for your nodes:
 
 Participant 1: 5011
 
 Participant 2: 5021
 
-To submit an order for a shirt (ie. your participant node) do:
+To submit an order for a shirt (ie. your participant node) do (adjusting the port if necessary):
 ```
 cd contracts-for-tshirts/src/participation
 daml build -o participation.dar
-daml script --dar participation.dar --script-name Setup:submitChoice --ledger-host localhost --ledger-port PORT --input-file submit.json
+daml script --dar participation.dar --script-name Setup:submitChoice --ledger-host localhost --ledger-port 5011 --input-file submit.json
 ```
-To query current orders do:
+To query current orders do (adjusting the ports if necessary):
 ```
-cd contracts-for-tshirts/shirts
-daml script --dar participation.dar --script-name Setup:queryExisting --ledger-host localhost --ledger-port PORT --input-file query.json --output-file output.txt
+cd contracts-for-tshirts/src/organizer
+daml script --dar organizer.dar --script-name Queries:queryOrders --ledger-host localhost --ledger-port 5021 --input-file query.json --output-file output.txt
 ```
+# Increasing your chances of winning
+
+To increase your chances of winning, team up with other DAML hackers!
+The more signatories you can get on your oder, the higher your chances of winning are.
+The actual rules of winning are specified in two places:
+
+  1. `src/freeshirts/daml/Freeshirts.daml`
+  2. `src/organizer/daml/Automation.daml`
+
+The real organizer is running the DAML Trigger from `Automation.daml`.
+Poke around to out how it picks the winners.
+If you have questions, ask away (either in the ZuriHac channel during the hackathon, or on the DAML forum later).
 
 # The official rules
 

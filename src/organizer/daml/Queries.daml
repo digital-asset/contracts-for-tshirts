@@ -1,0 +1,17 @@
+module Queries where
+
+import Daml.Script
+import Freeshirts
+import DA.Next.Map as M
+import DA.Next.Set as S
+
+queryOrders : Party -> Script [M.Map Party OrderData]
+queryOrders shop = do 
+  orders <- query @TShirtOrder shop
+  pure $ map (\x -> x._2.order) (trace orders orders)
+
+queryLeaderBoard : Party -> Script [[S.Set Party]]
+queryLeaderBoard shop = do 
+  boards <- query @LeaderBoard shop
+  pure $ map (\x -> map fst x._2.entries) (trace boards boards)
+

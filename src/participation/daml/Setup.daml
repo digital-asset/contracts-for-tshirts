@@ -30,11 +30,3 @@ submitChoice args = do
   _ <- submit args.parties.submitter do 
         createCmd TShirtOrder with organizer = args.parties.organizer, order
   pure ()
-
-
-queryExisting : Party -> Script [M.Map Party OrderData]
-queryExisting shop = do 
-  orders <- query @TShirtOrder shop
-  pure $ map (\x -> x._2.order) (trace orders orders)
-
-

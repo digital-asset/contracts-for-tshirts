@@ -6,12 +6,14 @@
   "order" : {
     "shirtChoice" : "DAMLShirt",
     "shirtSize" : "L",
-    "firstname" : "Alice",
-    "lastname" : "Wonderland",
-    "address" : "Humpty Dumpty Street 12",
-    "zip" : "1234",
-    "city" : "Rapperswil",
-    "country" : "CH",
-    "email" : "alice@wonderland.ch"
+    "address" : {
+      "firstname" : "Alice",
+      "lastname" : "Wonderland",
+      "streetAddress" : "Humpty Dumpty Street 12",
+      "zipCode" : "1234",
+      "city" : "Rapperswil",
+      "country" : "CH",
+      "email" : "alice@wonderland.ch"
+    }
   }
 }
