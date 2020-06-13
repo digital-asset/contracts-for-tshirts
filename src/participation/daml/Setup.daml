@@ -1,0 +1,40 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Setup where
+
+-- TODO: 
+--   move this into a separate DAR such that freeshirts remains stable
+--   add and deploy an auto-confirm trigger (such that we confirm orders as pending)
+--   figure out how to group orders (we could just use the trigger to bundle all pending orders together)
+--   add a script to query and reject invalid orders
+--   add a way to figure out the winner and inform the loosers
+
+import Daml.Script
+import Freeshirts
+import DA.Next.Map as M
+
+data LedgerParties = LedgerParties with
+  submitter : Party
+  organizer : Party
+
+data SubmitChoiceArgs = SubmitChoiceArgs with 
+  parties : LedgerParties 
+  order : OrderData 
+  
+submitChoice : SubmitChoiceArgs -> Script ()
+submitChoice args = do
+
+  let order = M.fromList [(args.parties.submitter, args.order)]
+  _ <- submit args.parties.submitter do 
+        createCmd TShirtOrder with organizer = args.parties.organizer, order
+  pure ()
+
+
+queryExisting : Party -> Script [M.Map Party OrderData]
+queryExisting shop = do 
+  orders <- query @TShirtOrder shop
+  pure $ map (\x -> x._2.order) (trace orders orders)
+
+

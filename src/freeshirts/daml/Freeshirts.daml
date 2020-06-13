@@ -1,0 +1,193 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Freeshirts where
+
+import DA.List (sortBy, unique)
+import DA.Next.Map as M
+import DA.Next.Set as S
+
+data ShirtChoice = ZuriHacShirtPeach | ZuriHacShirtBlack | ZuriHacShirtTeal | DAMLShirt deriving (Eq, Show)
+data ShirtSize = S | M | L | XL | XXL deriving (Eq, Show)
+
+data Address = Address with
+    firstname: Text
+    lastname : Text
+    streetAddress : Text 
+    zipCode : Text
+    city : Text
+    country : Text
+    email : Text 
+  deriving (Eq, Show, Ord)
+
+data OrderData = OrderData with 
+    shirtChoice : ShirtChoice
+    shirtSize : ShirtSize
+    address: Address
+  deriving (Eq, Show)
+
+-- If you give out a limited quantity of free shirts, you need some legal prose
+-- in case there are some overly eager participants. As ZuriHac and Digital Asset Switerzland GmbH
+-- are Swiss entities, we'll do this here in German.
+-- If you can't understand German, please use some online translation service.
+-- In short: you can't sue us to get a shirt and we won't use your data in any other way than dispatching
+-- a shirt (in the case you win).
+participationAgreement = " \ 
+   \ Die Teilnahme am Wettbewerb ist kostenlos. Es besteht keine Kaufverpflichtung. \
+   \ Teilnahmeberechtigt sind natürliche Personen. Die Teilnahme setzt voraus, dass der Teilnehmer \
+   \ seine Teilname über https://zurihac.canton.global als TShirtOrder Contract anmeldet. \
+   \ Der Teilnehmer akzeptiert die für Digital Asset GmbH existierende \
+   \ Datenschutzerklärung: https://www.digitalasset.com/privacy-policy-1 \
+   \ Die erhobenen Teilnahmedaten werden ausschliesslich zur Versendung der T-Shirts verwendet.  \
+   \ Die Daten werden von der Digital Asset Switzerland GmbH an den offiziellen ZuriHac  \
+   \ Shop https://shop.zfoh.ch/ zum Versand der T-Shirts weitergeleitet und danach vernichtet. \
+   \ Mitarbeiter der Firma DigitalAsset (weltweit) sind von der Teilnahme ausgeschlossen. \
+   \ Der Rechtsweg ist ausgeschlossen. Der Gewinn kann nicht in bar abgeloest werden. Pro  \
+   \ Teilnehmer ist nur ein Gewinn pro Gewinnspiel möglich. Manipulationen von Gewinnspielen \ 
+   \ (auch der blosse Versuch) wird zur Anzeige gebracht. Die Digital Asset Switerzland GmbH  \
+   \ ist berechtigt, Änderungen am Gewinn vorzunehmen. Der Rechtsweg ist ausgeschlossen. \
+   \ Die Gewinner werden von Digital Asset Schweiz im Sinne des Wettbewerbes bestimmt.  \
+   \ (Die früheste und am besten koordinierte zeitgleiche Einreichung von Teilnahmen.)  \
+   \ Die Gewinner werden mittels Kontrakt auf dem Ledger über ihren Gewinn benachrichtigt. \
+   \ In bestimmten Fällen kann die Gewinnbenachrichtigung auch direkt über die Zustellung des Gewinns erfolgen. \ 
+   \ Die durch den Teilnehmer bereitgestellten Daten werden für den Zeitraum der Durchführung des Gewinnspiels \
+   \ mittels einer Datenbank verarbeitet. Über das Gewinnspiel wird kein Schriftverkehr geführt."
+
+mapKeys : MapKey k => M.Map k v -> Set k
+mapKeys m = S.fromList $ map fst $ M.toList m
+
+mapValues : MapKey k => M.Map k v -> [v]
+mapValues = map snd . M.toList
+
+template TShirtOrder 
+  with 
+    order : Map Party OrderData
+    organizer : Party 
+  where 
+    signatory mapKeys order
+
+    let submitters = mapKeys order
+
+    ensure unique $ map address $ mapValues order
+
+    agreement participationAgreement
+
+    controller organizer can 
+      Confirm: (ContractId DrawOrder, ContractId LeaderBoard)
+        with
+          board: ContractId LeaderBoard
+        do
+          submissionTime <- getTime
+          pending <- create DrawOrder with order, organizer, submissionTime
+          newBoard <- exercise board AddEntry with entry = (mapKeys order, pending)
+          pure (pending, newBoard)
+          
+template LeaderBoard
+  with
+    organizer : Party 
+    entries : [(Set Party, ContractId DrawOrder)]
+  where
+    signatory organizer
+    observer concatMap (S.toList . fst) entries
+
+    controller organizer can 
+      AddEntry: ContractId LeaderBoard
+        with
+          entry: (Set Party, ContractId DrawOrder)
+        do
+          let flippedBySize = (\a b -> compare (S.size $ fst b) (S.size $ fst a))
+              sortedEntries = sortBy flippedBySize $ entry :: entries
+          create this with entries = sortedEntries
+
+template DrawOrder
+  with 
+    organizer : Party 
+    order : Map Party OrderData
+    submissionTime : Time
+  where 
+    let submitters = mapKeys order
+
+    signatory organizer
+    observer submitters
+
+    controller organizer can 
+      YouWin : ContractId Winner 
+        do 
+          create Winner with organizer, order
+
+      BadLuck : ContractId Sorry 
+        do 
+          create Sorry with organizer, order 
+
+template Sorry 
+  with 
+    organizer : Party
+    order : Map Party OrderData 
+  where 
+    signatory organizer 
+    let submitters = mapKeys order
+
+    agreement "Sorry, but someone else was luckier. Thank you very much for your participation."
+    
+    controller submitters can 
+      AckSorry : ()
+        do
+          return ()
+
+template Winner 
+  with 
+    organizer : Party 
+    order : Map Party OrderData 
+  where 
+    signatory organizer 
+
+    let submitters = mapKeys order
+
+    agreement "Winner, winner, chicken dinner! You have won a T-shirt! Thank you for participating!"
+
+    controller submitters can 
+      AckWin : ()
+        do
+          return ()
+        
+
+testWorkflows = scenario 
+  do
+    alice <- getParty "Alice"
+    bob <- getParty "Bob"
+    organizer <- getParty "Giveaway organizer"
+
+    aliceOrder <- submit alice do 
+      let address = Address with  firstname = "Alice", lastname = "Wonderland", 
+                                    streetAddress = "Humpty Dumpty Street 12", 
+                                    zipCode = "1234", city = "Rapperswil", country = "CH", 
+                                    email = "alice@wonderland.ch"
+          orderData = OrderData with shirtChoice = DAMLShirt, shirtSize = L, address
+          order = M.fromList [(alice, orderData)]
+
+      create TShirtOrder with order, organizer
+
+    bobOrder <- submit bob do 
+      let address = Address with firstname = "Bob", lastname = "Sponge", streetAddress = "No Idea 44", 
+                                  zipCode = "4321", city = "Rapperswil", country = "CH", 
+                                  email = "bob@sponge.com"
+          orderData = OrderData with shirtChoice = DAMLShirt, shirtSize = L, address
+          order = M.fromList [(bob, orderData)]
+      
+      create TShirtOrder with order, organizer
+
+    (win, lose) <- submit organizer do 
+       board <- create LeaderBoard with organizer, entries = []
+       (alicePending, board1) <- exercise aliceOrder Confirm with board = board
+       (bobPending, board2) <- exercise bobOrder Confirm with board = board1
+       win <- exercise alicePending YouWin 
+       lose <- exercise bobPending BadLuck 
+       return (win, lose)
+
+    return ()
+
+
+
+     
+

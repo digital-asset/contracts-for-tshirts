@@ -1,0 +1,33 @@
+module Automation where
+
+import DA.Next.Map qualified as M
+import Daml.Trigger
+import DA.Action (when)
+import Freeshirts
+
+freeshirtTrigger : Trigger ()
+freeshirtTrigger = Trigger
+  { initialize = \_acs -> ()
+  , updateState = \_acs _message () -> ()
+  , rule = respondRule
+  , registeredTemplates = AllInDar
+  , heartbeat = None
+  }
+
+respondRule : Party -> ACS -> Time -> M.Map CommandId [Command] -> () -> TriggerA ()
+respondRule p acs t inFlight () = do
+  when (M.null inFlight) $ do
+    case getContracts @LeaderBoard acs of
+      [] -> do
+        emitCommands [createCmd $ LeaderBoard with organizer = p, entries = []] []
+        pure ()
+      (boardId, _) :: _ -> processOrders boardId
+  where
+    processOrders boardId = do
+      let orders = getContracts @TShirtOrder acs
+          myOrders = filter (\(_, o) -> o.organizer == p) orders
+      case myOrders of
+        (cid, o) :: orders -> do
+          emitCommands [exerciseCmd cid Confirm with board = boardId] []
+          pure ()
+        [] -> pure ()

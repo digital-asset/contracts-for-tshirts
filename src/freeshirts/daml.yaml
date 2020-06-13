@@ -1,0 +1,14 @@
+sdk-version: 1.2.0-snapshot.20200527.4268.0.acc5a21c
+name: freeshirts
+source: daml
+exposed-modules:
+- Freeshirts
+parties:
+  - Alice
+  - Bob
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+sandbox-options:
+  - --wall-clock-time

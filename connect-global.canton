@@ -1,0 +1,14 @@
+
+
+// connect to the global domain if we havent registered it yet
+participants.local.foreach { mynode =>
+  if(mynode.domains.list_registered().isEmpty) {
+    mynode.domains.connect("zurihac", "https://zurihac.canton.global")
+  } else {
+    mynode.domains.reconnect()
+  }
+}
+
+
+
+

@@ -1,0 +1,17 @@
+{
+  "parties" : {
+    "submitter" : "Alice::015a7c0698d08ab22b3f401e51e6849d58c2258ad34a18dc9a4abadb81be5d9949",
+    "organizer" : "freeshirts::01416588161bd9e1ecec1295a6358576b109f6e3cd985e22e92014d02e5757d48c"
+  },
+  "order" : {
+    "shirtChoice" : "DAMLShirt",
+    "shirtSize" : "L",
+    "firstname" : "Alice",
+    "lastname" : "Wonderland",
+    "address" : "Humpty Dumpty Street 12",
+    "zip" : "1234",
+    "city" : "Rapperswil",
+    "country" : "CH",
+    "email" : "alice@wonderland.ch"
+  }
+}
