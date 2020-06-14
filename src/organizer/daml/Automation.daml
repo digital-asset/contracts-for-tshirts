@@ -25,7 +25,7 @@ respondRule p acs t inFlight () = do
   where
     processOrders boardId = do
       let orders = getContracts @TShirtOrder acs
-          myOrders = filter (\(_, o) -> o.organizer == p) orders
+          myOrders = filter (\(_, o) -> o.organizer == p && M.size o.order <= 20) orders
       case myOrders of
         (cid, o) :: orders -> do
           emitCommands [exerciseCmd cid Confirm with board = boardId] []
